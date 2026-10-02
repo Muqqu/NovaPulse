@@ -1,0 +1,213 @@
+@page "/weather"
+@rendermode InteractiveServer
+
+<PageTitle>Live Weather — NovaPulse .NET 8</PageTitle>
+
+<div class="weather-container">
+    <div class="page-header-flex mb-4">
+        <div>
+            <h1 class="page-title">Global Weather & Meteorological Insights</h1>
+            <p class="page-subtitle">Interactive async data stream simulation with dynamic metrics and forecasts</p>
+        </div>
+        <div class="d-flex align-items-center gap-2">
+            <button class="btn-custom btn-secondary-custom" @onclick="ToggleUnit">
+                <i class="bi bi-thermometer-half me-1"></i> Switch to @(_isCelsius ? "°F" : "°C")
+            </button>
+            <button class="btn-custom btn-primary-custom" @onclick="RefreshForecasts">
+                <i class="bi bi-arrow-clockwise me-1"></i> Reload Forecasts
+            </button>
+        </div>
+    </div>
+
+    <!-- City Filter Chips -->
+    <div class="city-chips-wrapper mb-4">
+        @foreach (var city in _cities)
+        {
+            <button class="city-chip @(_selectedCity == city ? "active" : "")" @onclick="() => SelectCity(city)">
+                <i class="bi bi-geo-alt-fill me-1"></i> @city
+            </button>
+        }
+    </div>
+
+    @if (_forecasts == null)
+    {
+        <div class="loading-container">
+            <div class="spinner-border text-primary-accent" role="status"></div>
+            <span class="ms-3 text-secondary-custom">Fetching meteorological telemetry...</span>
+        </div>
+    }
+    else
+    {
+        <!-- Main Highlight Card -->
+        <div class="row g-3 mb-4">
+            <div class="col-lg-6">
+                <div class="weather-hero-card">
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <div class="weather-city-title">@_selectedCity</div>
+                            <div class="weather-date-sub">@DateTime.Now.ToString("dddd, MMMM dd, yyyy")</div>
+                        </div>
+                        <div class="weather-hero-icon">
+                            <i class="bi @GetWeatherIcon(_forecasts[0].Summary)"></i>
+                        </div>
+                    </div>
+
+                    <div class="d-flex align-items-baseline gap-3 my-3">
+                        <div class="weather-hero-temp">
+                            @FormatTemp(_forecasts[0].TemperatureC)
+                        </div>
+                        <div class="weather-hero-summary">
+                            @_forecasts[0].Summary
+                        </div>
+                    </div>
+
+                    <div class="row text-center pt-2">
+                        <div class="col-4 border-end-subtle">
+                            <div class="stat-mini-label">HUMIDITY</div>
+                            <div class="fw-bold">@_forecasts[0].Humidity%</div>
+                        </div>
+                        <div class="col-4 border-end-subtle">
+                            <div class="stat-mini-label">WIND SPEED</div>
+                            <div class="fw-bold">@_forecasts[0].WindSpeed km/h</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-mini-label">UV INDEX</div>
+                            <div class="fw-bold text-warning">@_forecasts[0].UvIndex / 10</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="custom-card h-100">
+                    <h3 class="card-title-custom mb-3">Atmospheric Conditions Summary</h3>
+                    <div class="condition-items-grid">
+                        <div class="condition-item">
+                            <i class="bi bi-water text-info condition-icon"></i>
+                            <div>
+                                <div class="font-sm text-secondary-custom">Precipitation Chance</div>
+                                <div class="fw-bold">@_forecasts[0].Precipitation%</div>
+                            </div>
+                        </div>
+                        <div class="condition-item">
+                            <i class="bi bi-speedometer text-success condition-icon"></i>
+                            <div>
+                                <div class="font-sm text-secondary-custom">Barometric Pressure</div>
+                                <div class="fw-bold">1013.2 hPa</div>
+                            </div>
+                        </div>
+                        <div class="condition-item">
+                            <i class="bi bi-eye text-primary-accent condition-icon"></i>
+                            <div>
+                                <div class="font-sm text-secondary-custom">Visibility Distance</div>
+                                <div class="fw-bold">10.0 km</div>
+                            </div>
+                        </div>
+                        <div class="condition-item">
+                            <i class="bi bi-sunrise text-warning condition-icon"></i>
+                            <div>
+                                <div class="font-sm text-secondary-custom">Sunrise / Sunset</div>
+                                <div class="fw-bold">06:14 AM / 06:48 PM</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 5-Day Forecast Cards -->
+        <h3 class="card-title-custom mb-3">5-Day Outlook</h3>
+        <div class="forecast-cards-grid">
+            @foreach (var f in _forecasts)
+            {
+                <div class="forecast-day-card">
+                    <div class="day-name">@f.Date.ToString("ddd, MMM dd")</div>
+                    <div class="day-icon"><i class="bi @GetWeatherIcon(f.Summary)"></i></div>
+                    <div class="day-temp">@FormatTemp(f.TemperatureC)</div>
+                    <div class="day-summary">@f.Summary</div>
+                    <div class="day-wind text-secondary-custom font-sm">
+                        <i class="bi bi-wind me-1"></i>@f.WindSpeed km/h
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    private WeatherForecast[]? _forecasts;
+    private bool _isCelsius = true;
+    private string _selectedCity = "San Francisco, CA";
+    private readonly string[] _cities = { "San Francisco, CA", "New York, NY", "London, UK", "Tokyo, JP", "Zurich, CH" };
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadForecasts();
+    }
+
+    private async Task LoadForecasts()
+    {
+        // Simulate async delay
+        await Task.Delay(250);
+
+        var startDate = DateOnly.FromDateTime(DateTime.Now);
+        var summaries = new[] { "Sunny", "Partly Cloudy", "Breezy", "Scattered Showers", "Overcast", "Clear", "Mild" };
+        var random = new Random();
+
+        _forecasts = Enumerable.Range(0, 5).Select(index => new WeatherForecast
+        {
+            Date = startDate.AddDays(index),
+            TemperatureC = random.Next(12, 28),
+            Summary = summaries[random.Next(summaries.Length)],
+            Humidity = random.Next(40, 85),
+            WindSpeed = random.Next(5, 25),
+            Precipitation = random.Next(0, 40),
+            UvIndex = random.Next(3, 8)
+        }).ToArray();
+    }
+
+    private async Task RefreshForecasts()
+    {
+        _forecasts = null;
+        await LoadForecasts();
+    }
+
+    private async Task SelectCity(string city)
+    {
+        _selectedCity = city;
+        await RefreshForecasts();
+    }
+
+    private void ToggleUnit()
+    {
+        _isCelsius = !_isCelsius;
+    }
+
+    private string FormatTemp(int tempC)
+    {
+        if (_isCelsius) return $"{tempC}°C";
+        int tempF = 32 + (int)(tempC / 0.5556);
+        return $"{tempF}°F";
+    }
+
+    private string GetWeatherIcon(string? summary) => summary?.ToLower() switch
+    {
+        "sunny" or "clear" => "bi-sun-fill text-warning",
+        "partly cloudy" => "bi-cloud-sun-fill text-info",
+        "overcast" => "bi-clouds-fill text-secondary",
+        "breezy" or "windy" => "bi-wind text-primary-accent",
+        "scattered showers" or "rain" => "bi-cloud-rain-heavy-fill text-primary",
+        _ => "bi-cloud-fill text-info"
+    };
+
+    private class WeatherForecast
+    {
+        public DateOnly Date { get; set; }
+        public int TemperatureC { get; set; }
+        public string? Summary { get; set; }
+        public int Humidity { get; set; }
+        public int WindSpeed { get; set; }
+        public int Precipitation { get; set; }
+        public int UvIndex { get; set; }
+    }
+}

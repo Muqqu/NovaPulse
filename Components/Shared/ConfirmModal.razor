@@ -1,0 +1,44 @@
+@if (IsOpen)
+{
+    <div class="modal-backdrop-custom" @onclick="Cancel">
+        <div class="modal-dialog-custom" @onclick:stopPropagation="true">
+            <div class="modal-header-custom">
+                <div class="modal-title-custom">
+                    <i class="bi bi-exclamation-octagon-fill text-danger me-2"></i>
+                    @Title
+                </div>
+                <button type="button" class="btn-close-custom" @onclick="Cancel">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            <div class="modal-body-custom">
+                <p class="mb-0 text-secondary-custom">@Message</p>
+            </div>
+            <div class="modal-footer-custom">
+                <button type="button" class="btn-custom btn-secondary-custom" @onclick="Cancel">Cancel</button>
+                <button type="button" class="btn-custom btn-danger-custom" @onclick="Confirm">
+                    <i class="bi bi-trash3 me-1"></i> @ConfirmButtonText
+                </button>
+            </div>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public string Title { get; set; } = "Confirm Action";
+    [Parameter] public string Message { get; set; } = "Are you sure you want to proceed?";
+    [Parameter] public string ConfirmButtonText { get; set; } = "Delete";
+    [Parameter] public EventCallback OnConfirmed { get; set; }
+    [Parameter] public EventCallback OnCancelled { get; set; }
+
+    private async Task Confirm()
+    {
+        await OnConfirmed.InvokeAsync();
+    }
+
+    private async Task Cancel()
+    {
+        await OnCancelled.InvokeAsync();
+    }
+}

@@ -1,0 +1,463 @@
+@page "/projects"
+@inject IProjectService ProjectService
+@inject ToastService ToastService
+@using DotNetApp.Components.Shared
+@using DotNetApp.Data.Models
+
+<PageTitle>Projects & Tasks — NovaPulse .NET 8</PageTitle>
+
+<div class="projects-container">
+    <!-- Header Controls -->
+    <div class="page-header-flex mb-4">
+        <div>
+            <h1 class="page-title">Projects & Tasks</h1>
+            <p class="page-subtitle">Manage, filter, and track all development work with EF Core persistence</p>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn-custom btn-secondary-custom" @onclick="ToggleViewMode">
+                <i class="bi @(_isTableView ? "bi-grid-fill" : "bi-table") me-1"></i>
+                @(_isTableView ? "Card Grid" : "Table View")
+            </button>
+            <button class="btn-custom btn-primary-custom btn-glow" @onclick="OpenCreateModal">
+                <i class="bi bi-plus-lg me-1"></i> New Project
+            </button>
+        </div>
+    </div>
+
+    <!-- Filter & Search Toolbar -->
+    <div class="filter-toolbar mb-4">
+        <!-- Status Tabs -->
+        <div class="status-tab-group">
+            <button class="status-tab @(_selectedStatus == null ? "active" : "")" @onclick="() => FilterByStatus(null)">
+                All <span class="tab-badge">@_allProjectsCount</span>
+            </button>
+            <button class="status-tab @(_selectedStatus == ProjectStatus.InProgress ? "active" : "")" @onclick="() => FilterByStatus(ProjectStatus.InProgress)">
+                In Progress
+            </button>
+            <button class="status-tab @(_selectedStatus == ProjectStatus.InReview ? "active" : "")" @onclick="() => FilterByStatus(ProjectStatus.InReview)">
+                In Review
+            </button>
+            <button class="status-tab @(_selectedStatus == ProjectStatus.Backlog ? "active" : "")" @onclick="() => FilterByStatus(ProjectStatus.Backlog)">
+                Backlog
+            </button>
+            <button class="status-tab @(_selectedStatus == ProjectStatus.Completed ? "active" : "")" @onclick="() => FilterByStatus(ProjectStatus.Completed)">
+                Completed
+            </button>
+        </div>
+
+        <!-- Search and Dropdowns -->
+        <div class="filter-controls-row">
+            <div class="search-input-wrapper">
+                <i class="bi bi-search search-icon"></i>
+                <input type="text" class="form-control-custom search-input" placeholder="Search by title, tag, assignee..." @bind="_searchTerm" @bind:event="oninput" @bind:after="LoadProjects" />
+                @if (!string.IsNullOrEmpty(_searchTerm))
+                {
+                    <button class="clear-search-btn" @onclick="ClearSearch"><i class="bi bi-x"></i></button>
+                }
+            </div>
+
+            <div class="filter-dropdowns">
+                <select class="form-select-custom filter-select" @bind="_selectedCategory" @bind:after="LoadProjects">
+                    <option value="">All Categories</option>
+                    @foreach (var cat in Enum.GetValues<ProjectCategory>())
+                    {
+                        <option value="@cat">@cat</option>
+                    }
+                </select>
+
+                <select class="form-select-custom filter-select" @bind="_selectedPriority" @bind:after="LoadProjects">
+                    <option value="">All Priorities</option>
+                    @foreach (var pri in Enum.GetValues<ProjectPriority>())
+                    {
+                        <option value="@pri">@pri</option>
+                    }
+                </select>
+
+                <select class="form-select-custom filter-select" @bind="_selectedSort" @bind:after="LoadProjects">
+                    <option value="">Default (Starred)</option>
+                    <option value="newest">Newest First</option>
+                    <option value="duedate_asc">Due Date (Soonest)</option>
+                    <option value="priority_desc">Highest Priority</option>
+                    <option value="progress_desc">Highest Progress</option>
+                    <option value="title_asc">Title A-Z</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Project List / Grid / Table -->
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border text-primary-accent" role="status"></div>
+            <span class="ms-3 text-secondary-custom">Loading projects...</span>
+        </div>
+    }
+    else if (_projects.Count == 0)
+    {
+        <div class="empty-state-large">
+            <div class="empty-icon-circle"><i class="bi bi-folder2-open"></i></div>
+            <h3>No matching projects found</h3>
+            <p class="text-secondary-custom">Try adjusting your filters or search keywords, or create a brand new task.</p>
+            <button class="btn-custom btn-primary-custom mt-3" @onclick="OpenCreateModal">
+                <i class="bi bi-plus-lg me-1"></i> Create Project
+            </button>
+        </div>
+    }
+    else if (_isTableView)
+    {
+        <!-- Table View -->
+        <div class="custom-table-card">
+            <div class="table-responsive">
+                <table class="table custom-data-table mb-0">
+                    <thead>
+                        <tr>
+                            <th style="width: 40px;"></th>
+                            <th>Project & Category</th>
+                            <th>Status</th>
+                            <th>Priority</th>
+                            <th>Progress</th>
+                            <th>Assignee</th>
+                            <th>Due Date</th>
+                            <th class="text-end">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in _projects)
+                        {
+                            <tr>
+                                <td>
+                                    <button class="star-btn @(p.IsStarred ? "starred" : "")" @onclick="() => ToggleStar(p.Id)">
+                                        <i class="bi @(p.IsStarred ? "bi-star-fill text-warning" : "bi-star text-muted")"></i>
+                                    </button>
+                                </td>
+                                <td>
+                                    <div class="table-project-title">@p.Title</div>
+                                    <div class="d-flex align-items-center gap-2 mt-1">
+                                        <span class="project-category-badge cat-@p.Category.ToString().ToLower()">@p.Category</span>
+                                        @if (!string.IsNullOrEmpty(p.Tags))
+                                        {
+                                            <span class="tag-text">@p.Tags</span>
+                                        }
+                                    </div>
+                                </td>
+                                <td>
+                                    <select class="status-dropdown status-@p.Status.ToString().ToLower()" value="@p.Status" @onchange="(e) => UpdateStatus(p.Id, e)">
+                                        @foreach (var st in Enum.GetValues<ProjectStatus>())
+                                        {
+                                            <option value="@st">@st</option>
+                                        }
+                                    </select>
+                                </td>
+                                <td>
+                                    <span class="priority-badge priority-@p.Priority.ToString().ToLower()">@p.Priority</span>
+                                </td>
+                                <td>
+                                    <div class="table-progress-cell">
+                                        <div class="progress custom-progress-bar-sm">
+                                            <div class="progress-bar @GetProgressBarClass(p.ProgressPercentage)" style="width: @(p.ProgressPercentage)%"></div>
+                                        </div>
+                                        <span class="progress-text-sm">@p.ProgressPercentage%</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="assignee-cell">
+                                        <div class="mini-avatar">@GetInitials(p.Assignee)</div>
+                                        <span>@p.Assignee</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="due-text @(p.DueDate < DateTime.UtcNow && p.Status != ProjectStatus.Completed ? "text-danger" : "")">
+                                        @p.DueDate.ToString("MMM dd, yyyy")
+                                    </span>
+                                </td>
+                                <td class="text-end">
+                                    <div class="btn-group-custom">
+                                        <button class="btn-icon" title="Edit" @onclick="() => OpenEditModal(p)">
+                                            <i class="bi bi-pencil-fill"></i>
+                                        </button>
+                                        <button class="btn-icon text-danger" title="Delete" @onclick="() => OpenDeleteModal(p)">
+                                            <i class="bi bi-trash3-fill"></i>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+    else
+    {
+        <!-- Grid Cards View -->
+        <div class="projects-grid">
+            @foreach (var p in _projects)
+            {
+                <div class="project-card">
+                    <div class="project-card-top">
+                        <div class="d-flex align-items-center gap-2">
+                            <button class="star-btn @(p.IsStarred ? "starred" : "")" @onclick="() => ToggleStar(p.Id)">
+                                <i class="bi @(p.IsStarred ? "bi-star-fill text-warning" : "bi-star text-muted")"></i>
+                            </button>
+                            <span class="project-category-badge cat-@p.Category.ToString().ToLower()">@p.Category</span>
+                            <span class="priority-badge priority-@p.Priority.ToString().ToLower()">@p.Priority</span>
+                        </div>
+                        <div class="card-action-menu">
+                            <button class="btn-icon-subtle" @onclick="() => OpenEditModal(p)" title="Edit">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button class="btn-icon-subtle text-danger" @onclick="() => OpenDeleteModal(p)" title="Delete">
+                                <i class="bi bi-trash3"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <h3 class="project-card-heading">@p.Title</h3>
+                    <p class="project-card-description">@p.Description</p>
+
+                    <!-- Tags -->
+                    @if (!string.IsNullOrEmpty(p.Tags))
+                    {
+                        <div class="tag-chips mb-3">
+                            @foreach (var tag in p.Tags.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                            {
+                                <span class="tag-chip">#@tag</span>
+                            }
+                        </div>
+                    }
+
+                    <!-- Progress Section -->
+                    <div class="project-progress-container mb-3">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
+                            <span class="progress-label">Completion</span>
+                            <span class="progress-pct">@p.ProgressPercentage%</span>
+                        </div>
+                        <div class="progress custom-progress-bar-sm">
+                            <div class="progress-bar @GetProgressBarClass(p.ProgressPercentage)" style="width: @(p.ProgressPercentage)%"></div>
+                        </div>
+                    </div>
+
+                    <!-- Meta & Status Bar -->
+                    <div class="project-card-bottom">
+                        <div class="assignee-info">
+                            <div class="mini-avatar">@GetInitials(p.Assignee)</div>
+                            <span>@p.Assignee</span>
+                        </div>
+
+                        <select class="status-dropdown status-@p.Status.ToString().ToLower()" value="@p.Status" @onchange="(e) => UpdateStatus(p.Id, e)">
+                            @foreach (var st in Enum.GetValues<ProjectStatus>())
+                            {
+                                <option value="@st">@st</option>
+                            }
+                        </select>
+                    </div>
+
+                    <div class="project-card-subfooter">
+                        <span class="hours-badge">
+                            <i class="bi bi-clock-history me-1"></i> @p.LoggedHours / @p.EstimatedHours hrs
+                        </span>
+                        <span class="due-badge @(p.DueDate < DateTime.UtcNow && p.Status != ProjectStatus.Completed ? "overdue" : "")">
+                            <i class="bi bi-calendar-event me-1"></i> Due @p.DueDate.ToString("MMM dd")
+                        </span>
+                    </div>
+                </div>
+            }
+        </div>
+    }
+</div>
+
+<!-- Project Create/Edit Modal -->
+<ProjectModal 
+    IsOpen="_isModalOpen" 
+    IsEditMode="_isEditMode" 
+    Model="_currentModel" 
+    OnSave="HandleSaveProject" 
+    OnCancel="CloseModal" />
+
+<!-- Delete Confirmation Modal -->
+<ConfirmModal 
+    IsOpen="_isDeleteModalOpen"
+    Title="Delete Project"
+    Message="@($"Are you sure you want to permanently delete '{_projectToDelete?.Title}'? This will remove all associated logs from the SQLite database.")"
+    ConfirmButtonText="Delete Project"
+    OnConfirmed="HandleConfirmDelete"
+    OnCancelled="CloseDeleteModal" />
+
+@code {
+    private List<ProjectItem> _projects = new();
+    private bool _isLoading = true;
+    private bool _isTableView = false;
+    private int _allProjectsCount = 0;
+
+    // Filter states
+    private ProjectStatus? _selectedStatus = null;
+    private string _searchTerm = string.Empty;
+    private string _selectedCategory = string.Empty;
+    private string _selectedPriority = string.Empty;
+    private string _selectedSort = string.Empty;
+
+    // Modal states
+    private bool _isModalOpen = false;
+    private bool _isEditMode = false;
+    private ProjectItem _currentModel = new();
+
+    private bool _isDeleteModalOpen = false;
+    private ProjectItem? _projectToDelete;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadProjects();
+    }
+
+    private async Task LoadProjects()
+    {
+        _isLoading = true;
+
+        ProjectCategory? cat = Enum.TryParse<ProjectCategory>(_selectedCategory, out var c) ? c : null;
+        ProjectPriority? pri = Enum.TryParse<ProjectPriority>(_selectedPriority, out var p) ? p : null;
+
+        _projects = await ProjectService.GetAllProjectsAsync(
+            search: _searchTerm,
+            category: cat,
+            priority: pri,
+            status: _selectedStatus,
+            sortBy: _selectedSort
+        );
+
+        var all = await ProjectService.GetAllProjectsAsync();
+        _allProjectsCount = all.Count;
+
+        _isLoading = false;
+    }
+
+    private async Task FilterByStatus(ProjectStatus? status)
+    {
+        _selectedStatus = status;
+        await LoadProjects();
+    }
+
+    private void ClearSearch()
+    {
+        _searchTerm = string.Empty;
+        _ = LoadProjects();
+    }
+
+    private void ToggleViewMode()
+    {
+        _isTableView = !_isTableView;
+    }
+
+    private void OpenCreateModal()
+    {
+        _isEditMode = false;
+        _currentModel = new ProjectItem
+        {
+            DueDate = DateTime.UtcNow.AddDays(14),
+            Status = ProjectStatus.InProgress,
+            Priority = ProjectPriority.Medium,
+            Category = ProjectCategory.Fullstack,
+            Assignee = "Lead Developer"
+        };
+        _isModalOpen = true;
+    }
+
+    private void OpenEditModal(ProjectItem item)
+    {
+        _isEditMode = true;
+        _currentModel = new ProjectItem
+        {
+            Id = item.Id,
+            Title = item.Title,
+            Description = item.Description,
+            Category = item.Category,
+            Priority = item.Priority,
+            Status = item.Status,
+            Assignee = item.Assignee,
+            ProgressPercentage = item.ProgressPercentage,
+            EstimatedHours = item.EstimatedHours,
+            LoggedHours = item.LoggedHours,
+            DueDate = item.DueDate,
+            Tags = item.Tags,
+            IsStarred = item.IsStarred,
+            CreatedAt = item.CreatedAt
+        };
+        _isModalOpen = true;
+    }
+
+    private void CloseModal()
+    {
+        _isModalOpen = false;
+    }
+
+    private async Task HandleSaveProject(ProjectItem item)
+    {
+        if (_isEditMode)
+        {
+            await ProjectService.UpdateProjectAsync(item);
+            ToastService.Success($"Updated '{item.Title}' successfully!");
+        }
+        else
+        {
+            await ProjectService.CreateProjectAsync(item);
+            ToastService.Success($"Created '{item.Title}' successfully!");
+        }
+
+        _isModalOpen = false;
+        await LoadProjects();
+    }
+
+    private void OpenDeleteModal(ProjectItem item)
+    {
+        _projectToDelete = item;
+        _isDeleteModalOpen = true;
+    }
+
+    private void CloseDeleteModal()
+    {
+        _isDeleteModalOpen = false;
+        _projectToDelete = null;
+    }
+
+    private async Task HandleConfirmDelete()
+    {
+        if (_projectToDelete != null)
+        {
+            await ProjectService.DeleteProjectAsync(_projectToDelete.Id);
+            ToastService.Warning($"Deleted '{_projectToDelete.Title}' from database.");
+            CloseDeleteModal();
+            await LoadProjects();
+        }
+    }
+
+    private async Task ToggleStar(int id)
+    {
+        await ProjectService.ToggleStarAsync(id);
+        await LoadProjects();
+    }
+
+    private async Task UpdateStatus(int id, ChangeEventArgs e)
+    {
+        if (Enum.TryParse<ProjectStatus>(e.Value?.ToString(), out var status))
+        {
+            await ProjectService.UpdateStatusAsync(id, status);
+            ToastService.Info($"Status changed to {status}");
+            await LoadProjects();
+        }
+    }
+
+    private string GetProgressBarClass(int progress) => progress switch
+    {
+        >= 80 => "bg-success",
+        >= 40 => "bg-primary-accent",
+        _ => "bg-warning"
+    };
+
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "U";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2) return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+        return name[0].ToString().ToUpper();
+    }
+}

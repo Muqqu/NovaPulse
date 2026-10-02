@@ -1,0 +1,370 @@
+@page "/"
+@inject IProjectService ProjectService
+@inject ToastService ToastService
+@inject NavigationManager Navigation
+@using DotNetApp.Components.Shared
+
+<PageTitle>Dashboard — NovaPulse .NET 8</PageTitle>
+
+<div class="dashboard-container">
+    <!-- Top Hero Banner -->
+    <div class="hero-banner">
+        <div class="hero-content">
+            <div class="hero-badge">
+                <i class="bi bi-stars text-warning me-1"></i>
+                <span>.NET 8 Blazor + Entity Framework Core</span>
+            </div>
+            <h1 class="hero-title">Welcome to NovaPulse Workspace</h1>
+            <p class="hero-subtitle">
+                High-performance project orchestration, real-time metrics tracking, and SQLite EF Core persistence.
+            </p>
+        </div>
+        <div class="hero-actions">
+            <button class="btn-custom btn-primary-custom btn-glow" @onclick="OpenCreateModal">
+                <i class="bi bi-plus-lg me-1"></i> New Project
+            </button>
+            <button class="btn-custom btn-secondary-custom" @onclick='() => Navigation.NavigateTo("projects")'>
+                <i class="bi bi-kanban me-1"></i> View All Tasks
+            </button>
+        </div>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border text-primary-accent" role="status"></div>
+            <span class="ms-3 text-secondary-custom">Synchronizing data from EF Core database...</span>
+        </div>
+    }
+    else
+    {
+        <!-- KPI Metric Cards Grid -->
+        <div class="row g-3 mb-4">
+            <!-- Total Projects -->
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="metric-card metric-primary">
+                    <div class="metric-header">
+                        <span class="metric-label">TOTAL PROJECTS</span>
+                        <div class="metric-icon-box"><i class="bi bi-folder-fill"></i></div>
+                    </div>
+                    <div class="metric-value">@_stats.TotalProjects</div>
+                    <div class="metric-subtext">
+                        <span class="text-success"><i class="bi bi-arrow-up-right me-1"></i>Active</span>
+                        <span class="ms-1">across all categories</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- In Progress -->
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="metric-card metric-info">
+                    <div class="metric-header">
+                        <span class="metric-label">IN PROGRESS</span>
+                        <div class="metric-icon-box"><i class="bi bi-lightning-charge-fill"></i></div>
+                    </div>
+                    <div class="metric-value">@_stats.InProgressCount</div>
+                    <div class="metric-subtext">
+                        <span class="text-info">@_stats.InReviewCount in review</span>
+                        <span class="ms-1">• @_stats.BacklogCount backlog</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Completed -->
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="metric-card metric-success">
+                    <div class="metric-header">
+                        <span class="metric-label">COMPLETED</span>
+                        <div class="metric-icon-box"><i class="bi bi-check2-circle"></i></div>
+                    </div>
+                    <div class="metric-value">@_stats.CompletedCount</div>
+                    <div class="metric-subtext">
+                        <span class="text-success">@(_stats.TotalProjects > 0 ? (_stats.CompletedCount * 100 / _stats.TotalProjects) : 0)%</span>
+                        <span class="ms-1">completion rate</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Critical Priority -->
+            <div class="col-12 col-sm-6 col-xl-3">
+                <div class="metric-card metric-danger">
+                    <div class="metric-header">
+                        <span class="metric-label">CRITICAL ATTENTION</span>
+                        <div class="metric-icon-box"><i class="bi bi-fire"></i></div>
+                    </div>
+                    <div class="metric-value">@_stats.CriticalPriorityCount</div>
+                    <div class="metric-subtext">
+                        <span class="text-danger">@_stats.HighPriorityCount High priority</span>
+                        <span class="ms-1">items flagged</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Middle Section: Overall Progress Bar & Quick Stats -->
+        <div class="row g-3 mb-4">
+            <div class="col-lg-8">
+                <div class="custom-card">
+                    <div class="card-header-flex">
+                        <div>
+                            <h3 class="card-title-custom">Overall Workspace Progress</h3>
+                            <p class="card-subtitle-custom">Calculated average completion across all registered projects</p>
+                        </div>
+                        <div class="progress-pill">
+                            <span>@_stats.OverallProgressPercentage%</span>
+                        </div>
+                    </div>
+
+                    <div class="progress custom-progress-bar-lg mb-3">
+                        <div class="progress-bar bg-gradient-primary" role="progressbar" style="width: @(_stats.OverallProgressPercentage)%" aria-valuenow="@_stats.OverallProgressPercentage" aria-valuemin="0" aria-valuemax="100"></div>
+                    </div>
+
+                    <div class="row text-center pt-2">
+                        <div class="col-4 border-end-subtle">
+                            <div class="stat-mini-label">ESTIMATED HOURS</div>
+                            <div class="stat-mini-value">@_stats.TotalEstimatedHours hrs</div>
+                        </div>
+                        <div class="col-4 border-end-subtle">
+                            <div class="stat-mini-label">LOGGED HOURS</div>
+                            <div class="stat-mini-value text-info">@_stats.TotalLoggedHours hrs</div>
+                        </div>
+                        <div class="col-4">
+                            <div class="stat-mini-label">FAVORITED</div>
+                            <div class="stat-mini-value text-warning">@_stats.StarredCount items</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-4">
+                <div class="custom-card">
+                    <h3 class="card-title-custom mb-3">System Quick Actions</h3>
+                    <div class="d-flex flex-column gap-2">
+                        <button class="action-tile-btn" @onclick="OpenCreateModal">
+                            <div class="action-tile-icon bg-primary-subtle"><i class="bi bi-plus-square-fill text-primary-accent"></i></div>
+                            <div class="action-tile-text">
+                                <span class="action-tile-title">Create New Task</span>
+                                <span class="action-tile-desc">Add a project with full metadata</span>
+                            </div>
+                            <i class="bi bi-chevron-right ms-auto"></i>
+                        </button>
+
+                        <button class="action-tile-btn" @onclick='() => Navigation.NavigateTo("database")'>
+                            <div class="action-tile-icon bg-success-subtle"><i class="bi bi-database-fill text-success"></i></div>
+                            <div class="action-tile-text">
+                                <span class="action-tile-title">Inspect SQLite Database</span>
+                                <span class="action-tile-desc">View EF Core tables and reset seed</span>
+                            </div>
+                            <i class="bi bi-chevron-right ms-auto"></i>
+                        </button>
+
+                        <button class="action-tile-btn" @onclick='() => Navigation.NavigateTo("analytics")'>
+                            <div class="action-tile-icon bg-warning-subtle"><i class="bi bi-graph-up-arrow text-warning"></i></div>
+                            <div class="action-tile-text">
+                                <span class="action-tile-title">Velocity & Workload</span>
+                                <span class="action-tile-desc">Analyze category hours distribution</span>
+                            </div>
+                            <i class="bi bi-chevron-right ms-auto"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Lower Section: Active Priority Projects & Recent Activity -->
+        <div class="row g-3">
+            <!-- Active Featured Projects -->
+            <div class="col-lg-8">
+                <div class="custom-card">
+                    <div class="card-header-flex mb-3">
+                        <div>
+                            <h3 class="card-title-custom">Featured & Active Projects</h3>
+                            <p class="card-subtitle-custom">High priority and starred initiatives</p>
+                        </div>
+                        <a href="projects" class="btn-custom btn-secondary-custom btn-sm">
+                            Manage All <i class="bi bi-arrow-right ms-1"></i>
+                        </a>
+                    </div>
+
+                    @if (_recentProjects.Count == 0)
+                    {
+                        <div class="empty-state">
+                            <i class="bi bi-inbox empty-icon"></i>
+                            <p>No active projects found. Click "New Project" to create one!</p>
+                        </div>
+                    }
+                    else
+                    {
+                        <div class="project-list-grid">
+                            @foreach (var proj in _recentProjects)
+                            {
+                                <div class="project-summary-card">
+                                    <div class="d-flex justify-content-between align-items-start mb-2">
+                                        <div class="d-flex align-items-center gap-2">
+                                            <button class="star-btn @(proj.IsStarred ? "starred" : "")" @onclick="() => ToggleStar(proj.Id)">
+                                                <i class="bi @(proj.IsStarred ? "bi-star-fill text-warning" : "bi-star text-muted")"></i>
+                                            </button>
+                                            <span class="project-category-badge cat-@proj.Category.ToString().ToLower()">@proj.Category</span>
+                                            <span class="priority-badge priority-@proj.Priority.ToString().ToLower()">@proj.Priority</span>
+                                        </div>
+                                        <span class="status-badge status-@proj.Status.ToString().ToLower()">@proj.Status</span>
+                                    </div>
+
+                                    <h4 class="project-item-title">@proj.Title</h4>
+                                    <p class="project-item-desc">@proj.Description</p>
+
+                                    <div class="project-progress-container mb-3">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <span class="progress-label">Progress</span>
+                                            <span class="progress-pct">@proj.ProgressPercentage%</span>
+                                        </div>
+                                        <div class="progress custom-progress-bar-sm">
+                                            <div class="progress-bar @GetProgressBarClass(proj.ProgressPercentage)" style="width: @(proj.ProgressPercentage)%"></div>
+                                        </div>
+                                    </div>
+
+                                    <div class="project-card-footer">
+                                        <div class="assignee-info">
+                                            <i class="bi bi-person-circle me-1"></i>
+                                            <span>@proj.Assignee</span>
+                                        </div>
+                                        <div class="due-info">
+                                            <i class="bi bi-calendar3 me-1"></i>
+                                            <span>Due @proj.DueDate.ToString("MMM dd")</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+
+            <!-- Activity Log -->
+            <div class="col-lg-4">
+                <div class="custom-card h-100">
+                    <div class="card-header-flex mb-3">
+                        <h3 class="card-title-custom">Activity Stream</h3>
+                        <span class="badge-custom badge-info">Realtime Log</span>
+                    </div>
+
+                    @if (_activities.Count == 0)
+                    {
+                        <p class="text-secondary-custom">No recent activity recorded.</p>
+                    }
+                    else
+                    {
+                        <div class="activity-timeline">
+                            @foreach (var act in _activities)
+                            {
+                                <div class="timeline-item">
+                                    <div class="timeline-icon icon-@act.IconType">
+                                        @switch (act.IconType)
+                                        {
+                                            case "add":
+                                                <i class="bi bi-plus-lg"></i>
+                                                break;
+                                            case "edit":
+                                                <i class="bi bi-pencil-fill"></i>
+                                                break;
+                                            case "check":
+                                                <i class="bi bi-check-lg"></i>
+                                                break;
+                                            case "delete":
+                                                <i class="bi bi-trash3-fill"></i>
+                                                break;
+                                            case "star":
+                                                <i class="bi bi-star-fill"></i>
+                                                break;
+                                            default:
+                                                <i class="bi bi-info-circle-fill"></i>
+                                                break;
+                                        }
+                                    </div>
+                                    <div class="timeline-content">
+                                        <div class="timeline-title">
+                                            <strong>@act.Action</strong>: @act.EntityTitle
+                                        </div>
+                                        <div class="timeline-details">@act.Details</div>
+                                        <div class="timeline-time">@act.Timestamp.ToLocalTime().ToString("MMM dd, h:mm tt")</div>
+                                    </div>
+                                </div>
+                            }
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+<!-- Create Project Modal -->
+<ProjectModal 
+    IsOpen="_isCreateModalOpen"
+    IsEditMode="false"
+    Model="_newProjectModel"
+    OnSave="HandleCreateProject"
+    OnCancel="CloseCreateModal" />
+
+@code {
+    private DashboardStats _stats = new();
+    private List<ProjectItem> _recentProjects = new();
+    private List<ActivityLog> _activities = new();
+    private bool _isLoading = true;
+
+    private bool _isCreateModalOpen = false;
+    private ProjectItem _newProjectModel = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadDashboardData();
+    }
+
+    private async Task LoadDashboardData()
+    {
+        _isLoading = true;
+        _stats = await ProjectService.GetDashboardStatsAsync();
+        _recentProjects = await ProjectService.GetAllProjectsAsync(sortBy: "priority_desc");
+        _recentProjects = _recentProjects.Take(4).ToList();
+        _activities = await ProjectService.GetRecentActivitiesAsync(6);
+        _isLoading = false;
+    }
+
+    private void OpenCreateModal()
+    {
+        _newProjectModel = new ProjectItem
+        {
+            DueDate = DateTime.UtcNow.AddDays(14),
+            Status = ProjectStatus.InProgress,
+            Priority = ProjectPriority.Medium,
+            Category = ProjectCategory.Fullstack
+        };
+        _isCreateModalOpen = true;
+    }
+
+    private void CloseCreateModal()
+    {
+        _isCreateModalOpen = false;
+    }
+
+    private async Task HandleCreateProject(ProjectItem item)
+    {
+        await ProjectService.CreateProjectAsync(item);
+        ToastService.Success($"Project '{item.Title}' created in SQLite database!");
+        _isCreateModalOpen = false;
+        await LoadDashboardData();
+    }
+
+    private async Task ToggleStar(int id)
+    {
+        await ProjectService.ToggleStarAsync(id);
+        await LoadDashboardData();
+    }
+
+    private string GetProgressBarClass(int progress) => progress switch
+    {
+        >= 80 => "bg-success",
+        >= 40 => "bg-primary-accent",
+        _ => "bg-warning"
+    };
+}

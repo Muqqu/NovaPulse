@@ -1,0 +1,93 @@
+@inherits LayoutComponentBase
+@inject NavigationManager Navigation
+@using DotNetApp.Components.Shared
+
+<div class="app-layout">
+    <!-- Sidebar Navigation -->
+    <aside class="app-sidebar">
+        <NavMenu />
+    </aside>
+
+    <!-- Main Content Area -->
+    <div class="app-main-wrapper">
+        <!-- Header Topbar -->
+        <header class="app-header">
+            <div class="header-left">
+                <div class="header-breadcrumb">
+                    <span class="text-secondary-custom">Workspace</span>
+                    <i class="bi bi-chevron-right separator"></i>
+                    <span class="active-page">@GetPageTitle()</span>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="header-pill">
+                    <i class="bi bi-hdd-network text-success me-1"></i>
+                    <span>Blazor Interactive Server</span>
+                </div>
+
+                <a href="https://learn.microsoft.com/en-us/aspnet/core/blazor/" target="_blank" class="header-icon-btn" title="Blazor Documentation">
+                    <i class="bi bi-book"></i>
+                </a>
+
+                <button class="header-icon-btn" title="Refresh Page" @onclick="Refresh">
+                    <i class="bi bi-arrow-clockwise"></i>
+                </button>
+
+                <div class="user-profile-pill">
+                    <div class="user-avatar">AD</div>
+                    <div class="user-info d-none d-md-block">
+                        <span class="user-name">Admin Developer</span>
+                        <span class="user-role">Full-Stack Lead</span>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Dynamic Body Page Content -->
+        <main class="app-content">
+            @Body
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <div class="footer-content">
+                <div>
+                    <strong>NovaPulse</strong> — Powered by ASP.NET Core 8.0 & Entity Framework Core
+                </div>
+                <div class="footer-links">
+                    <span>SQLite Local Database</span>
+                    <span class="dot-separator">•</span>
+                    <span>Blazor Server Interactive Mode</span>
+                </div>
+            </div>
+        </footer>
+    </div>
+</div>
+
+<!-- Global Notification Toast Container -->
+<ToastContainer />
+
+<div id="blazor-error-ui">
+    An unhandled error has occurred.
+    <a href="" class="reload">Reload</a>
+    <a class="dismiss">🗙</a>
+</div>
+
+@code {
+    private string GetPageTitle()
+    {
+        var uri = Navigation.Uri;
+        if (uri.EndsWith("/projects")) return "Projects & Tasks";
+        if (uri.EndsWith("/analytics")) return "Analytics & Velocity";
+        if (uri.EndsWith("/database")) return "Database & Schema";
+        if (uri.EndsWith("/weather")) return "Weather Forecast";
+        if (uri.EndsWith("/counter")) return "Reactive Counter";
+        return "Executive Dashboard";
+    }
+
+    private void Refresh()
+    {
+        Navigation.NavigateTo(Navigation.Uri, forceLoad: true);
+    }
+}

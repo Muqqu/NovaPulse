@@ -1,0 +1,128 @@
+@using DotNetApp.Data.Models
+
+@if (IsOpen)
+{
+    <div class="modal-backdrop-custom" @onclick="Cancel">
+        <div class="modal-dialog-custom modal-lg-custom" @onclick:stopPropagation="true">
+            <div class="modal-header-custom">
+                <div class="modal-title-custom">
+                    <i class="bi @(IsEditMode ? "bi-pencil-square" : "bi-plus-circle-fill") text-primary-accent me-2"></i>
+                    @(IsEditMode ? "Edit Project" : "Create New Project")
+                </div>
+                <button type="button" class="btn-close-custom" @onclick="Cancel">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+            
+            <EditForm Model="Model" OnValidSubmit="HandleValidSubmit">
+                <DataAnnotationsValidator />
+                
+                <div class="modal-body-custom">
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label-custom">Project Title <span class="text-danger">*</span></label>
+                            <InputText class="form-control-custom" @bind-Value="Model.Title" placeholder="e.g. Next-Gen API Gateway" />
+                            <ValidationMessage For="@(() => Model.Title)" class="form-error-text" />
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label-custom">Description <span class="text-danger">*</span></label>
+                            <InputTextArea class="form-control-custom" rows="3" @bind-Value="Model.Description" placeholder="Provide a brief overview of objectives and deliverables..." />
+                            <ValidationMessage For="@(() => Model.Description)" class="form-error-text" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label-custom">Category</label>
+                            <InputSelect class="form-select-custom" @bind-Value="Model.Category">
+                                @foreach (var category in Enum.GetValues<ProjectCategory>())
+                                {
+                                    <option value="@category">@category</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label-custom">Priority</label>
+                            <InputSelect class="form-select-custom" @bind-Value="Model.Priority">
+                                @foreach (var priority in Enum.GetValues<ProjectPriority>())
+                                {
+                                    <option value="@priority">@priority</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label-custom">Current Status</label>
+                            <InputSelect class="form-select-custom" @bind-Value="Model.Status">
+                                @foreach (var status in Enum.GetValues<ProjectStatus>())
+                                {
+                                    <option value="@status">@status</option>
+                                }
+                            </InputSelect>
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label-custom">Lead Assignee <span class="text-danger">*</span></label>
+                            <InputText class="form-control-custom" @bind-Value="Model.Assignee" placeholder="e.g. Sarah Jenkins" />
+                            <ValidationMessage For="@(() => Model.Assignee)" class="form-error-text" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label-custom">Due Date</label>
+                            <InputDate class="form-control-custom" @bind-Value="Model.DueDate" />
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label-custom">Tags (comma-separated)</label>
+                            <InputText class="form-control-custom" @bind-Value="Model.Tags" placeholder="dotnet, efcore, blazor" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label-custom">Progress (@Model.ProgressPercentage%)</label>
+                            <div class="d-flex align-items-center gap-2">
+                                <input type="range" class="form-range custom-slider" min="0" max="100" step="5" @bind="Model.ProgressPercentage" @bind:event="oninput" />
+                                <span class="badge-custom badge-progress">@Model.ProgressPercentage%</span>
+                            </div>
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label-custom">Est. Hours</label>
+                            <InputNumber class="form-control-custom" @bind-Value="Model.EstimatedHours" />
+                        </div>
+
+                        <div class="col-md-4">
+                            <label class="form-label-custom">Logged Hours</label>
+                            <InputNumber class="form-control-custom" @bind-Value="Model.LoggedHours" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="modal-footer-custom">
+                    <button type="button" class="btn-custom btn-secondary-custom" @onclick="Cancel">Cancel</button>
+                    <button type="submit" class="btn-custom btn-primary-custom">
+                        <i class="bi @(IsEditMode ? "bi-check2-circle" : "bi-plus-lg") me-1"></i>
+                        @(IsEditMode ? "Save Changes" : "Create Project")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public bool IsOpen { get; set; }
+    [Parameter] public bool IsEditMode { get; set; }
+    [Parameter] public ProjectItem Model { get; set; } = new();
+    [Parameter] public EventCallback<ProjectItem> OnSave { get; set; }
+    [Parameter] public EventCallback OnCancel { get; set; }
+
+    private async Task HandleValidSubmit()
+    {
+        await OnSave.InvokeAsync(Model);
+    }
+
+    private async Task Cancel()
+    {
+        await OnCancel.InvokeAsync();
+    }
+}

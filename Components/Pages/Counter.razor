@@ -1,0 +1,115 @@
+@page "/counter"
+@rendermode InteractiveServer
+
+<PageTitle>Reactive State — NovaPulse .NET 8</PageTitle>
+
+<div class="counter-page-container">
+    <div class="page-header-flex mb-4">
+        <div>
+            <h1 class="page-title">Blazor Server Reactive State</h1>
+            <p class="page-subtitle">Interactive C# state management with real-time DOM diffing and event handlers</p>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <!-- Main Counter Display Card -->
+        <div class="col-lg-7">
+            <div class="custom-card text-center py-5">
+                <div class="counter-display-badge mb-3">
+                    <span>CURRENT VALUE</span>
+                </div>
+                
+                <div class="counter-huge-number animate-pop" @key="_currentCount">
+                    @_currentCount
+                </div>
+
+                <p class="text-secondary-custom mb-4">
+                    Step increment: <strong class="text-primary-accent">+@_step</strong>
+                </p>
+
+                <div class="d-flex justify-content-center align-items-center gap-3 flex-wrap">
+                    <button class="btn-custom btn-danger-custom" @onclick="DecrementCount">
+                        <i class="bi bi-dash-lg me-1"></i> Decrease (@_step)
+                    </button>
+
+                    <button class="btn-custom btn-secondary-custom" @onclick="ResetCount">
+                        <i class="bi bi-arrow-counterclockwise me-1"></i> Reset
+                    </button>
+
+                    <button class="btn-custom btn-primary-custom btn-glow" @onclick="IncrementCount">
+                        <i class="bi bi-plus-lg me-1"></i> Increase (@_step)
+                    </button>
+                </div>
+
+                <hr class="my-4 subtle-divider" />
+
+                <!-- Step Size Control -->
+                <div class="d-flex justify-content-center align-items-center gap-3">
+                    <span class="text-secondary-custom font-sm">Change Step:</span>
+                    <div class="btn-group-custom">
+                        @foreach (var s in new[] { 1, 5, 10, 25, 100 })
+                        {
+                            <button class="btn-pill @(_step == s ? "active" : "")" @onclick="() => _step = s">
+                                +@s
+                            </button>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- State History Log -->
+        <div class="col-lg-5">
+            <div class="custom-card h-100">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h3 class="card-title-custom">Mutation History</h3>
+                    <span class="badge-custom badge-info">@_history.Count events</span>
+                </div>
+
+                @if (_history.Count == 0)
+                {
+                    <p class="text-secondary-custom">Click buttons to trigger state mutations.</p>
+                }
+                else
+                {
+                    <div class="history-list">
+                        @foreach (var entry in _history.Take(8))
+                        {
+                            <div class="history-item">
+                                <span class="font-mono text-secondary-custom">@entry.Time.ToString("HH:mm:ss")</span>
+                                <span class="badge-custom @(entry.Delta > 0 ? "badge-success" : entry.Delta < 0 ? "badge-danger" : "badge-info")">
+                                    @(entry.Delta > 0 ? $"+{entry.Delta}" : entry.Delta == 0 ? "Reset" : $"{entry.Delta}")
+                                </span>
+                                <span class="history-val">Result: <strong>@entry.NewValue</strong></span>
+                            </div>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private int _currentCount = 0;
+    private int _step = 1;
+    private readonly List<(DateTime Time, int Delta, int NewValue)> _history = new();
+
+    private void IncrementCount()
+    {
+        _currentCount += _step;
+        _history.Insert(0, (DateTime.UtcNow, _step, _currentCount));
+    }
+
+    private void DecrementCount()
+    {
+        _currentCount -= _step;
+        _history.Insert(0, (DateTime.UtcNow, -_step, _currentCount));
+    }
+
+    private void ResetCount()
+    {
+        _currentCount = 0;
+        _history.Insert(0, (DateTime.UtcNow, 0, 0));
+    }
+}

@@ -1,0 +1,70 @@
+@inject ToastService ToastService
+@implements IDisposable
+
+<div class="toast-container-wrapper">
+    @foreach (var toast in _toasts)
+    {
+        <div class="custom-toast toast-@toast.Level.ToString().ToLower() animate-slide-in">
+            <div class="toast-icon">
+                @switch (toast.Level)
+                {
+                    case ToastLevel.Success:
+                        <i class="bi bi-check-circle-fill"></i>
+                        break;
+                    case ToastLevel.Warning:
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        break;
+                    case ToastLevel.Error:
+                        <i class="bi bi-x-circle-fill"></i>
+                        break;
+                    default:
+                        <i class="bi bi-info-circle-fill"></i>
+                        break;
+                }
+            </div>
+            <div class="toast-body-content">
+                <div class="toast-title">@toast.Title</div>
+                <div class="toast-text">@toast.Message</div>
+            </div>
+            <button class="toast-close-btn" @onclick="() => RemoveToast(toast.Id)">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+    }
+</div>
+
+@code {
+    private readonly List<ToastMessage> _toasts = new();
+
+    protected override void OnInitialized()
+    {
+        ToastService.OnShow += HandleToast;
+    }
+
+    private void HandleToast(ToastMessage toast)
+    {
+        _toasts.Add(toast);
+        InvokeAsync(StateHasChanged);
+
+        _ = Task.Run(async () =>
+        {
+            await Task.Delay(4000);
+            RemoveToast(toast.Id);
+            await InvokeAsync(StateHasChanged);
+        });
+    }
+
+    private void RemoveToast(Guid id)
+    {
+        var toast = _toasts.FirstOrDefault(t => t.Id == id);
+        if (toast != null)
+        {
+            _toasts.Remove(toast);
+        }
+    }
+
+    public void Dispose()
+    {
+        ToastService.OnShow -= HandleToast;
+    }
+}

@@ -1,0 +1,61 @@
+<div class="sidebar-wrapper">
+    <!-- Brand / Logo -->
+    <div class="sidebar-brand">
+        <div class="brand-icon-wrapper">
+            <i class="bi bi-cpu-fill"></i>
+        </div>
+        <div class="brand-text">
+            <span class="brand-title">NovaPulse</span>
+            <span class="brand-subtitle">.NET 8 Enterprise</span>
+        </div>
+    </div>
+
+    <!-- Navigation Links -->
+    <div class="sidebar-nav">
+        <div class="nav-section-label">MAIN WORKSPACE</div>
+        
+        <NavLink class="nav-item-custom" href="" Match="NavLinkMatch.All">
+            <div class="nav-item-icon"><i class="bi bi-grid-1x2-fill"></i></div>
+            <span class="nav-item-text">Dashboard</span>
+        </NavLink>
+
+        <NavLink class="nav-item-custom" href="projects">
+            <div class="nav-item-icon"><i class="bi bi-kanban-fill"></i></div>
+            <span class="nav-item-text">Projects & Tasks</span>
+            <span class="nav-badge">EF Core</span>
+        </NavLink>
+
+        <NavLink class="nav-item-custom" href="analytics">
+            <div class="nav-item-icon"><i class="bi bi-bar-chart-line-fill"></i></div>
+            <span class="nav-item-text">Analytics & Velocity</span>
+        </NavLink>
+
+        <div class="nav-section-label">SYSTEM & DATA</div>
+
+        <NavLink class="nav-item-custom" href="database">
+            <div class="nav-item-icon"><i class="bi bi-database-fill-gear"></i></div>
+            <span class="nav-item-text">Database & Schema</span>
+        </NavLink>
+
+        <NavLink class="nav-item-custom" href="weather">
+            <div class="nav-item-icon"><i class="bi bi-cloud-sun-fill"></i></div>
+            <span class="nav-item-text">Live Weather</span>
+        </NavLink>
+
+        <NavLink class="nav-item-custom" href="counter">
+            <div class="nav-item-icon"><i class="bi bi-plus-slash-minus"></i></div>
+            <span class="nav-item-text">Reactive State</span>
+        </NavLink>
+    </div>
+
+    <!-- Sidebar Footer / Environment Badge -->
+    <div class="sidebar-footer">
+        <div class="system-status-card">
+            <div class="status-indicator">
+                <span class="status-dot pulsing"></span>
+                <span class="status-text">SQLite Active</span>
+            </div>
+            <div class="status-version">.NET 8.0 • Blazor Server</div>
+        </div>
+    </div>
+</div>

@@ -1,0 +1,193 @@
+@page "/database"
+@inject IProjectService ProjectService
+@inject ToastService ToastService
+@using DotNetApp.Data.Models
+
+<PageTitle>Database & EF Core — NovaPulse .NET 8</PageTitle>
+
+<div class="database-container">
+    <div class="page-header-flex mb-4">
+        <div>
+            <h1 class="page-title">Database & EF Core Schema Explorer</h1>
+            <p class="page-subtitle">Inspect SQLite persistence state, tables, schema metadata, and seed fixtures</p>
+        </div>
+        <button class="btn-custom btn-danger-custom" @onclick="ConfirmReset">
+            <i class="bi bi-arrow-repeat me-1"></i> Reset & Re-Seed Database
+        </button>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border text-primary-accent" role="status"></div>
+            <span class="ms-3 text-secondary-custom">Querying database metadata...</span>
+        </div>
+    }
+    else
+    {
+        <!-- Database Health Cards -->
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-4">
+                <div class="custom-card db-stat-card">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="db-icon-box bg-success-subtle text-success">
+                            <i class="bi bi-database-check"></i>
+                        </div>
+                        <div>
+                            <div class="stat-mini-label">DATABASE PROVIDER</div>
+                            <div class="fw-bold fs-5">SQLite 3 (EF Core 8)</div>
+                            <div class="font-sm text-success"><i class="bi bi-check-circle-fill me-1"></i>Connected & Healthy</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-4">
+                <div class="custom-card db-stat-card">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="db-icon-box bg-primary-subtle text-primary-accent">
+                            <i class="bi bi-table"></i>
+                        </div>
+                        <div>
+                            <div class="stat-mini-label">TOTAL PROJECT RECORDS</div>
+                            <div class="fw-bold fs-5">@_projects.Count records</div>
+                            <div class="font-sm text-secondary-custom">Table: <code>Projects</code></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-4">
+                <div class="custom-card db-stat-card">
+                    <div class="d-flex align-items-center gap-3">
+                        <div class="db-icon-box bg-info-subtle text-info">
+                            <i class="bi bi-clock-history"></i>
+                        </div>
+                        <div>
+                            <div class="stat-mini-label">ACTIVITY AUDIT LOGS</div>
+                            <div class="fw-bold fs-5">@_activities.Count events</div>
+                            <div class="font-sm text-secondary-custom">Table: <code>ActivityLogs</code></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schema Details & Connection Spec -->
+        <div class="row g-3 mb-4">
+            <div class="col-lg-6">
+                <div class="custom-card h-100">
+                    <h3 class="card-title-custom mb-3">
+                        <i class="bi bi-gear-wide-connected text-primary-accent me-2"></i>
+                        Configuration & Connection
+                    </h3>
+                    
+                    <div class="code-spec-table">
+                        <div class="spec-row">
+                            <span class="spec-name">Runtime Framework</span>
+                            <span class="spec-val font-mono">.NET 8.0 (net8.0)</span>
+                        </div>
+                        <div class="spec-row">
+                            <span class="spec-name">ORM / Data Layer</span>
+                            <span class="spec-val font-mono">Microsoft.EntityFrameworkCore.Sqlite 8.0.11</span>
+                        </div>
+                        <div class="spec-row">
+                            <span class="spec-name">Connection String</span>
+                            <span class="spec-val font-mono">Data Source=novapulse.db</span>
+                        </div>
+                        <div class="spec-row">
+                            <span class="spec-name">Service Registration</span>
+                            <span class="spec-val font-mono">AddDbContextFactory&lt;AppDbContext&gt;</span>
+                        </div>
+                        <div class="spec-row">
+                            <span class="spec-name">Auto-Migration</span>
+                            <span class="spec-val font-mono">Database.EnsureCreatedAsync()</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-lg-6">
+                <div class="custom-card h-100">
+                    <h3 class="card-title-custom mb-3">
+                        <i class="bi bi-code-square text-info me-2"></i>
+                        C# DbContext Architecture
+                    </h3>
+                    <pre class="code-preview-box"><code>public class AppDbContext : DbContext
+{
+    public DbSet&lt;ProjectItem&gt; Projects => Set&lt;ProjectItem&gt;();
+    public DbSet&lt;ActivityLog&gt; ActivityLogs => Set&lt;ActivityLog&gt;();
+
+    protected override void OnModelCreating(ModelBuilder mb)
+    {
+        // Fluent API configurations & enum string conversions
+    }
+}</code></pre>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Audit Events from EF Core -->
+        <div class="custom-card mb-4">
+            <h3 class="card-title-custom mb-3">
+                <i class="bi bi-journal-text text-warning me-2"></i>
+                Persisted Activity Audit Trail (<code>ActivityLogs</code>)
+            </h3>
+            
+            <div class="table-responsive">
+                <table class="table custom-data-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Action Type</th>
+                            <th>Entity Title</th>
+                            <th>Details</th>
+                            <th>Timestamp</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var log in _activities)
+                        {
+                            <tr>
+                                <td class="font-mono">#@log.Id</td>
+                                <td>
+                                    <span class="badge-custom badge-info">@log.Action</span>
+                                </td>
+                                <td class="fw-semibold">@log.EntityTitle</td>
+                                <td class="text-secondary-custom">@log.Details</td>
+                                <td class="font-sm font-mono">@log.Timestamp.ToLocalTime().ToString("yyyy-MM-dd HH:mm:ss")</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ProjectItem> _projects = new();
+    private List<ActivityLog> _activities = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadData();
+    }
+
+    private async Task LoadData()
+    {
+        _isLoading = true;
+        _projects = await ProjectService.GetAllProjectsAsync();
+        _activities = await ProjectService.GetRecentActivitiesAsync(15);
+        _isLoading = false;
+    }
+
+    private async Task ConfirmReset()
+    {
+        _isLoading = true;
+        await ProjectService.ResetDatabaseAsync();
+        ToastService.Warning("Database was deleted and re-seeded with demo fixtures!");
+        await LoadData();
+    }
+}

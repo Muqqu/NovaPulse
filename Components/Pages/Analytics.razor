@@ -1,0 +1,232 @@
+@page "/analytics"
+@inject IProjectService ProjectService
+@using DotNetApp.Data.Models
+
+<PageTitle>Analytics & Velocity — NovaPulse .NET 8</PageTitle>
+
+<div class="analytics-container">
+    <div class="page-header-flex mb-4">
+        <div>
+            <h1 class="page-title">Analytics & Engineering Velocity</h1>
+            <p class="page-subtitle">Real-time metrics, workload distribution, and EF Core aggregated telemetry</p>
+        </div>
+        <button class="btn-custom btn-secondary-custom" @onclick="LoadAnalytics">
+            <i class="bi bi-arrow-clockwise me-1"></i> Refresh Data
+        </button>
+    </div>
+
+    @if (_isLoading)
+    {
+        <div class="loading-container">
+            <div class="spinner-border text-primary-accent" role="status"></div>
+            <span class="ms-3 text-secondary-custom">Aggregating telemetry...</span>
+        </div>
+    }
+    else
+    {
+        <!-- Key Velocity Stats -->
+        <div class="row g-3 mb-4">
+            <div class="col-12 col-md-4">
+                <div class="custom-card stat-highlight-card">
+                    <div class="stat-highlight-icon bg-primary-subtle">
+                        <i class="bi bi-speedometer2 text-primary-accent"></i>
+                    </div>
+                    <div>
+                        <div class="stat-mini-label">OVERALL COMPLETION</div>
+                        <div class="stat-big-value">@_stats.OverallProgressPercentage%</div>
+                        <div class="stat-sub-text">Across @_projects.Count active work streams</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-4">
+                <div class="custom-card stat-highlight-card">
+                    <div class="stat-highlight-icon bg-info-subtle">
+                        <i class="bi bi-hourglass-split text-info"></i>
+                    </div>
+                    <div>
+                        <div class="stat-mini-label">WORK EFFICIENCY</div>
+                        <div class="stat-big-value">@GetEfficiencyRate()%</div>
+                        <div class="stat-sub-text">@_stats.TotalLoggedHours hrs logged / @_stats.TotalEstimatedHours hrs est.</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-12 col-md-4">
+                <div class="custom-card stat-highlight-card">
+                    <div class="stat-highlight-icon bg-success-subtle">
+                        <i class="bi bi-check-circle-fill text-success"></i>
+                    </div>
+                    <div>
+                        <div class="stat-mini-label">DELIVERY SUCCESS</div>
+                        <div class="stat-big-value">@(_stats.TotalProjects > 0 ? (_stats.CompletedCount * 100 / _stats.TotalProjects) : 0)%</div>
+                        <div class="stat-sub-text">@_stats.CompletedCount of @_stats.TotalProjects tasks completed</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Breakdown by Category & Priority -->
+        <div class="row g-3 mb-4">
+            <!-- Category Distribution -->
+            <div class="col-lg-6">
+                <div class="custom-card h-100">
+                    <h3 class="card-title-custom mb-3">Domain & Category Distribution</h3>
+                    <div class="category-breakdown-list">
+                        @foreach (var cat in Enum.GetValues<ProjectCategory>())
+                        {
+                            var count = _projects.Count(p => p.Category == cat);
+                            var pct = _projects.Count > 0 ? (count * 100 / _projects.Count) : 0;
+                            var hours = _projects.Where(p => p.Category == cat).Sum(p => p.LoggedHours);
+
+                            <div class="category-metric-item">
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <div class="d-flex align-items-center gap-2">
+                                        <span class="project-category-badge cat-@cat.ToString().ToLower()">@cat</span>
+                                        <span class="text-secondary-custom font-sm">(@count projects • @hours hrs)</span>
+                                    </div>
+                                    <span class="fw-bold">@pct%</span>
+                                </div>
+                                <div class="progress custom-progress-bar-sm">
+                                    <div class="progress-bar cat-bar-@cat.ToString().ToLower()" style="width: @pct%"></div>
+                                </div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <!-- Priority & Status Breakdown -->
+            <div class="col-lg-6">
+                <div class="custom-card h-100">
+                    <h3 class="card-title-custom mb-3">Priority & Status Breakdown</h3>
+                    
+                    <h5 class="section-minor-title">By Priority</h5>
+                    <div class="priority-meter-row mb-4">
+                        @foreach (var pri in Enum.GetValues<ProjectPriority>())
+                        {
+                            var count = _projects.Count(p => p.Priority == pri);
+                            var pct = _projects.Count > 0 ? (count * 100 / _projects.Count) : 0;
+
+                            <div class="priority-card-mini">
+                                <span class="priority-badge priority-@pri.ToString().ToLower() mb-1">@pri</span>
+                                <div class="fs-4 fw-bold">@count</div>
+                                <div class="font-sm text-secondary-custom">@pct% of total</div>
+                            </div>
+                        }
+                    </div>
+
+                    <h5 class="section-minor-title">By Pipeline Status</h5>
+                    <div class="status-meter-row">
+                        @foreach (var st in Enum.GetValues<ProjectStatus>())
+                        {
+                            var count = _projects.Count(p => p.Status == st);
+                            var pct = _projects.Count > 0 ? (count * 100 / _projects.Count) : 0;
+
+                            <div class="status-card-mini">
+                                <span class="status-badge status-@st.ToString().ToLower() mb-1">@st</span>
+                                <div class="fs-4 fw-bold">@count</div>
+                                <div class="font-sm text-secondary-custom">@pct%</div>
+                            </div>
+                        }
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Assignee Workload Analysis Table -->
+        <div class="custom-card">
+            <h3 class="card-title-custom mb-3">Team Lead & Developer Workload Distribution</h3>
+            <div class="table-responsive">
+                <table class="table custom-data-table mb-0">
+                    <thead>
+                        <tr>
+                            <th>Assignee</th>
+                            <th>Active Projects</th>
+                            <th>Avg. Progress</th>
+                            <th>Logged vs Est. Hours</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var group in _projects.GroupBy(p => p.Assignee))
+                        {
+                            var activeCount = group.Count();
+                            var avgProg = (int)Math.Round(group.Average(p => p.ProgressPercentage));
+                            var logged = group.Sum(p => p.LoggedHours);
+                            var est = group.Sum(p => p.EstimatedHours);
+
+                            <tr>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="mini-avatar">@GetInitials(group.Key)</div>
+                                        <span class="fw-semibold">@group.Key</span>
+                                    </div>
+                                </td>
+                                <td><span class="badge-custom badge-info">@activeCount initiatives</span></td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2" style="max-width: 200px;">
+                                        <div class="progress custom-progress-bar-sm flex-grow-1">
+                                            <div class="progress-bar bg-primary-accent" style="width: @avgProg%"></div>
+                                        </div>
+                                        <span class="font-sm">@avgProg%</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="font-mono">@logged / @est hrs</span>
+                                </td>
+                                <td>
+                                    @if (avgProg >= 80)
+                                    {
+                                        <span class="text-success"><i class="bi bi-check2 me-1"></i>On Schedule</span>
+                                    }
+                                    else if (logged > est)
+                                    {
+                                        <span class="text-danger"><i class="bi bi-exclamation-triangle me-1"></i>Over Budget</span>
+                                    }
+                                    else
+                                    {
+                                        <span class="text-info"><i class="bi bi-clock me-1"></i>In Progress</span>
+                                    }
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private List<ProjectItem> _projects = new();
+    private DashboardStats _stats = new();
+    private bool _isLoading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAnalytics();
+    }
+
+    private async Task LoadAnalytics()
+    {
+        _isLoading = true;
+        _projects = await ProjectService.GetAllProjectsAsync();
+        _stats = await ProjectService.GetDashboardStatsAsync();
+        _isLoading = false;
+    }
+
+    private int GetEfficiencyRate()
+    {
+        if (_stats.TotalEstimatedHours == 0) return 100;
+        return (int)Math.Round((double)_stats.TotalLoggedHours / _stats.TotalEstimatedHours * 100);
+    }
+
+    private string GetInitials(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name)) return "U";
+        var parts = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length >= 2) return $"{parts[0][0]}{parts[1][0]}".ToUpper();
+        return name[0].ToString().ToUpper();
+    }
+}
